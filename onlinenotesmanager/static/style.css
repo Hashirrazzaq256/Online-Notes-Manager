@@ -1,0 +1,307 @@
+body {
+    font-family: Arial, sans-serif;
+    background: #f4f6f8;
+    margin: 0;
+    padding: 0;
+}
+
+/* Header + top navigation */
+
+header {
+    background: #2c3e50;
+    color: white;
+    padding: 12px 20px;
+}
+
+.header-inner {
+    max-width: 1000px;
+    margin: 0 auto;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+}
+
+.logo {
+    font-size: 1.4rem;
+    font-weight: bold;
+    letter-spacing: 1px;
+}
+
+header nav {
+    display: flex;
+    gap: 10px;
+    align-items: center;
+}
+
+header nav a {
+    color: #ecf0f1;
+    text-decoration: none;
+    font-size: 0.95rem;
+    padding: 6px 10px;
+    border-radius: 6px;
+    border: 1px solid transparent;
+}
+
+header nav a:hover {
+    border-color: #ecf0f1;
+}
+
+.welcome-text {
+    margin-right: 8px;
+    font-size: 0.95rem;
+}
+
+.logout-form {
+    display: inline-block;
+    margin: 0;
+}
+
+/* Main container */
+
+.container {
+    max-width: 1000px;
+    margin: 30px auto;
+    padding: 20px;
+    background: white;
+    border-radius: 12px;
+    box-shadow: 0 4px 10px rgba(0,0,0,0.06);
+}
+
+h2 {
+    text-align: center;
+    margin-bottom: 20px;
+    color: #2c3e50;
+}
+
+/* Forms (login/register) */
+
+form {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+input[type="text"],
+input[type="password"],
+input[type="email"],
+input[type="datetime-local"],
+select,
+textarea {
+    padding: 10px 12px;
+    border: 1px solid #d0d7de;
+    border-radius: 8px;
+    font-size: 0.95rem;
+    font-family: inherit;
+}
+
+textarea {
+    resize: vertical;
+    min-height: 120px;
+}
+
+button {
+    padding: 10px 14px;
+    border: none;
+    background: #3498db;
+    color: white;
+    font-size: 0.95rem;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: background 0.2s ease;
+}
+
+button:hover {
+    background: #2980b9;
+}
+
+button.secondary {
+    background: #ecf0f1;
+    color: #2c3e50;
+}
+
+button.secondary:hover {
+    background: #d0d7de;
+}
+
+p {
+    text-align: center;
+    margin-top: 10px;
+    font-size: 0.9rem;
+}
+
+a {
+    color: #3498db;
+    text-decoration: none;
+}
+
+a:hover {
+    text-decoration: underline;
+}
+
+/* Flash messages */
+
+.flash {
+    margin-bottom: 15px;
+    padding: 8px 10px;
+    border-radius: 8px;
+    background: #fdecea;
+    color: #c0392b;
+    font-size: 0.9rem;
+}
+
+.flash p {
+    margin: 4px 0;
+    text-align: left;
+}
+
+.flash p.success {
+    color: #1e8449;
+}
+
+.flash p.info {
+    color: #21618c;
+}
+
+/* Notes layout */
+
+.notes-layout {
+    display: grid;
+    grid-template-columns: 1.1fr 1.4fr;
+    gap: 20px;
+}
+
+.notes-sidebar h2 {
+    text-align: left;
+    margin-bottom: 12px;
+}
+
+.notes-controls {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 15px;
+}
+
+.notes-controls input[type="text"] {
+    flex: 1;
+}
+
+.notes-section {
+    margin-bottom: 16px;
+}
+
+.notes-section h3 {
+    margin: 8px 0;
+    font-size: 0.95rem;
+    color: #34495e;
+}
+
+.notes-list {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.note-card {
+    background: #f8fafc;
+    border-radius: 8px;
+    padding: 10px 12px;
+    border: 1px solid #e1e4e8;
+    cursor: pointer;
+    transition: background 0.15s ease, box-shadow 0.15s ease, transform 0.05s ease;
+}
+
+.note-card:hover {
+    background: #ffffff;
+    box-shadow: 0 2px 6px rgba(0,0,0,0.05);
+    transform: translateY(-1px);
+}
+
+.note-card.pinned {
+    border-left: 4px solid #f1c40f;
+}
+
+.note-card-title {
+    font-weight: 600;
+    margin-bottom: 4px;
+    font-size: 0.95rem;
+    color: #2c3e50;
+}
+
+.note-card-meta {
+    font-size: 0.8rem;
+    color: #7f8c8d;
+    margin-bottom: 4px;
+}
+
+.note-card-preview {
+    font-size: 0.85rem;
+    color: #555;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+/* Editor panel */
+
+.notes-editor h2 {
+    text-align: left;
+    margin-bottom: 10px;
+}
+
+.field-group {
+    margin-bottom: 12px;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.field-group label {
+    font-size: 0.9rem;
+    color: #34495e;
+}
+
+.field-row {
+    margin-bottom: 12px;
+}
+
+.buttons-row {
+    display: flex;
+    gap: 8px;
+    margin-top: 8px;
+}
+
+.hint {
+    margin-top: 15px;
+    font-size: 0.85rem;
+    color: #7f8c8d;
+    text-align: left;
+}
+.guest-btn {
+    display: block;
+    text-align: center;
+    margin-top: 10px;
+    padding: 10px;
+    background: #95a5a6;
+    color: white;
+    border-radius: 8px;
+    text-decoration: none;
+    transition: background 0.2s;
+}
+
+.guest-btn:hover {
+    background: #7f8c8d;
+}
+
+/* Responsive adjustments */
+
+@media (max-width: 800px) {
+    .container {
+        margin: 0;
+        min-height: calc(100vh - 60px);
+        border-radius: 0;
+    }
+
+    .notes-layout {
+        grid-template-columns: 1fr;
+    }
+}

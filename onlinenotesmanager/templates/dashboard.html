@@ -1,0 +1,474 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="notes-layout">
+    <div class="notes-sidebar">
+        <h2>Your Notes</h2>
+        <div class="notes-controls">
+            <button type="button" id="new-note-btn">New Note</button>
+            <input type="text" id="search-input" placeholder="Search by title or content">
+        </div>
+
+        <div class="notes-section">
+            <h3>Pinned</h3>
+            <div id="pinned-notes" class="notes-list"></div>
+        </div>
+
+        <div class="notes-section">
+            <h3>All Notes</h3>
+            <div id="other-notes" class="notes-list"></div>
+        </div>
+    </div>
+
+    <div class="notes-editor">
+        <h2 id="editor-title-heading">Note Editor</h2>
+        <form id="note-form">
+            <input type="hidden" id="note-id">
+
+            <div class="field-group">
+                <label for="note-title">Title</label>
+                <input type="text" id="note-title" placeholder="Enter note title">
+            </div>
+
+            <div class="field-group">
+                <label for="note-category">Category</label>
+                <select id="note-category">
+                    <option value="">Uncategorized</option>
+                    <option value="Work">Work</option>
+                    <option value="Personal">Personal</option>
+                    <option value="Study">Study</option>
+                    <option value="Misc">Miscellaneous</option>
+
+                </select>
+            </div>
+
+            <div class="field-group">
+                <label for="note-content">Content</label>
+                <textarea id="note-content" rows="10" placeholder="Write your note here..."></textarea>
+            </div>
+
+            <div class="field-row">
+                <label>
+                    <input type="checkbox" id="note-pinned">
+                    Pin this note
+                </label>
+            </div>
+
+            <div class="field-group">
+                <label for="note-reminder">Reminder (optional)</label>
+                <input type="datetime-local" id="note-reminder">
+            </div>
+
+            <div class="buttons-row">
+                <button type="submit" id="save-note-btn">Save Note</button>
+                <button type="button" id="delete-note-btn" class="secondary">Delete</button>
+                <button type="button" id="download-note-btn" class="secondary">Download as .txt</button>
+            </div>
+        </form>
+
+        <p class="hint">
+            {% if current_user.is_authenticated %}
+                You are logged in. Notes are stored securely in the database and available from any device.
+            {% else %}
+                You are in guest mode. Notes are stored only in this browser using local storage.
+            {% endif %}
+        </p>
+    </div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+    const IS_AUTHENTICATED = {{ 'true' if current_user.is_authenticated else 'false' }};
+    const NOTES_API_URL = "{{ url_for('api_notes') }}";
+
+    const noteForm = document.getElementById('note-form');
+    const noteIdInput = document.getElementById('note-id');
+    const noteTitleInput = document.getElementById('note-title');
+    const noteCategorySelect = document.getElementById('note-category');
+    const noteContentTextarea = document.getElementById('note-content');
+    const notePinnedCheckbox = document.getElementById('note-pinned');
+    const noteReminderInput = document.getElementById('note-reminder');
+
+    const newNoteBtn = document.getElementById('new-note-btn');
+    const deleteNoteBtn = document.getElementById('delete-note-btn');
+    const downloadNoteBtn = document.getElementById('download-note-btn');
+    const searchInput = document.getElementById('search-input');
+
+    const pinnedNotesContainer = document.getElementById('pinned-notes');
+    const otherNotesContainer = document.getElementById('other-notes');
+
+    let notes = [];
+    let currentNoteId = null;
+    let searchQuery = '';
+
+    function generateClientId() {
+        return 'guest-' + Date.now().toString() + '-' + Math.random().toString(16).slice(2);
+    }
+
+    function loadGuestNotesFromLocalStorage() {
+        try {
+            const raw = localStorage.getItem('notes_guest');
+            if (!raw) {
+                notes = [];
+                return;
+            }
+            const parsed = JSON.parse(raw);
+            if (Array.isArray(parsed)) {
+                notes = parsed.map(function (n) {
+                    return {
+                        id: n.id || n.clientId || generateClientId(),
+                        title: n.title || '',
+                        content: n.content || '',
+                        category: n.category || '',
+                        isPinned: !!n.isPinned,
+                        reminderAt: n.reminderAt || '',
+                        createdAt: n.createdAt || new Date().toISOString(),
+                        updatedAt: n.updatedAt || new Date().toISOString(),
+                        clientId: n.clientId || n.id || generateClientId()
+                    };
+                });
+            } else {
+                notes = [];
+            }
+        } catch (e) {
+            console.error('Failed to load guest notes from localStorage', e);
+            notes = [];
+        }
+    }
+
+    function saveGuestNotesToLocalStorage() {
+        try {
+            localStorage.setItem('notes_guest', JSON.stringify(notes));
+        } catch (e) {
+            console.error('Failed to save notes to localStorage', e);
+        }
+    }
+
+    async function loadNotesForAuthenticatedUser() {
+        try {
+            const response = await fetch(NOTES_API_URL, { method: 'GET' });
+            if (!response.ok) {
+                throw new Error('Failed to fetch notes from server');
+            }
+            const data = await response.json();
+            notes = Array.isArray(data) ? data : [];
+        } catch (err) {
+            console.error(err);
+            notes = [];
+        }
+    }
+
+    function clearEditor() {
+        currentNoteId = null;
+        noteIdInput.value = '';
+        noteTitleInput.value = '';
+        noteCategorySelect.value = '';
+        noteContentTextarea.value = '';
+        notePinnedCheckbox.checked = false;
+        noteReminderInput.value = '';
+    }
+
+    function setEditorFromNote(note) {
+        currentNoteId = note.id;
+        noteIdInput.value = note.id;
+        noteTitleInput.value = note.title || '';
+        noteCategorySelect.value = note.category || '';
+        noteContentTextarea.value = note.content || '';
+        notePinnedCheckbox.checked = !!note.isPinned;
+        if (note.reminderAt) {
+            // reminderAt stored as ISO; convert to datetime-local value
+            const dt = new Date(note.reminderAt);
+            if (!isNaN(dt.getTime())) {
+                const local = new Date(dt.getTime() - dt.getTimezoneOffset() * 60000);
+                noteReminderInput.value = local.toISOString().slice(0, 16);
+            } else {
+                noteReminderInput.value = '';
+            }
+        } else {
+            noteReminderInput.value = '';
+        }
+    }
+
+    function renderNotes() {
+        pinnedNotesContainer.innerHTML = '';
+        otherNotesContainer.innerHTML = '';
+
+        const q = (searchQuery || '').toLowerCase();
+
+        const filtered = notes.filter(function (n) {
+            if (!q) return true;
+            const title = (n.title || '').toLowerCase();
+            const content = (n.content || '').toLowerCase();
+            return title.includes(q) || content.includes(q);
+        });
+
+        const pinned = filtered.filter(function (n) { return !!n.isPinned; });
+        const others = filtered.filter(function (n) { return !n.isPinned; });
+
+        function createNoteCard(note) {
+            const card = document.createElement('div');
+            card.className = 'note-card';
+            if (note.isPinned) {
+                card.classList.add('pinned');
+            }
+            card.dataset.id = note.id;
+
+            const titleEl = document.createElement('div');
+            titleEl.className = 'note-card-title';
+            titleEl.textContent = note.title || 'Untitled';
+
+            const metaEl = document.createElement('div');
+            metaEl.className = 'note-card-meta';
+            const categoryText = note.category ? note.category : 'No category';
+            let reminderText = '';
+            if (note.reminderAt) {
+                const dt = new Date(note.reminderAt);
+                if (!isNaN(dt.getTime())) {
+                    reminderText = ' • Reminder: ' + dt.toLocaleString();
+                }
+            }
+            metaEl.textContent = categoryText + reminderText;
+
+            const previewEl = document.createElement('div');
+            previewEl.className = 'note-card-preview';
+            const preview = (note.content || '').slice(0, 80);
+            previewEl.textContent = preview;
+
+            card.appendChild(titleEl);
+            card.appendChild(metaEl);
+            card.appendChild(previewEl);
+
+            card.addEventListener('click', function () {
+                setEditorFromNote(note);
+            });
+
+            return card;
+        }
+
+        pinned.forEach(function (note) {
+            pinnedNotesContainer.appendChild(createNoteCard(note));
+        });
+        others.forEach(function (note) {
+            otherNotesContainer.appendChild(createNoteCard(note));
+        });
+    }
+
+    function collectNoteFromEditor() {
+        const title = (noteTitleInput.value || '').trim();
+        const content = (noteContentTextarea.value || '').trim();
+        const category = noteCategorySelect.value || '';
+        const isPinned = notePinnedCheckbox.checked;
+        const reminderRaw = noteReminderInput.value;
+
+        let reminderAt = '';
+        if (reminderRaw) {
+            // datetime-local value  converting tp  ISO UTC string
+            const local = new Date(reminderRaw);
+            if (!isNaN(local.getTime())) {
+                reminderAt = local.toISOString();
+            }
+        }
+
+        return {
+            title: title,
+            content: content,
+            category: category,
+            isPinned: isPinned,
+            reminderAt: reminderAt
+        };
+    }
+
+    async function saveCurrentNote(explicitSave) {
+        const data = collectNoteFromEditor();
+
+        // Do nothing if everything is empty
+        if (!data.title && !data.content && !data.category && !data.reminderAt) {
+            return;
+        }
+
+        if (!IS_AUTHENTICATED) {
+            // Guest mode: save to localStorage
+            let note = null;
+            if (currentNoteId) {
+                note = notes.find(function (n) { return n.id === currentNoteId; });
+            }
+            const nowIso = new Date().toISOString();
+
+            if (!note) {
+                const clientId = generateClientId();
+                note = {
+                    id: clientId,
+                    clientId: clientId,
+                    createdAt: nowIso
+                };
+                notes.push(note);
+                currentNoteId = note.id;
+                noteIdInput.value = note.id;
+            }
+
+            note.title = data.title || 'Untitled';
+            note.content = data.content;
+            note.category = data.category;
+            note.isPinned = data.isPinned;
+            note.reminderAt = data.reminderAt;
+            note.updatedAt = nowIso;
+
+            saveGuestNotesToLocalStorage();
+            renderNotes();
+            return;
+        }
+
+        // Authenticated: save to server
+        try {
+            let response;
+            const payload = {
+                title: data.title,
+                content: data.content,
+                category: data.category,
+                isPinned: data.isPinned,
+                reminderAt: data.reminderAt
+            };
+
+            if (currentNoteId) {
+                response = await fetch(NOTES_API_URL + '/' + currentNoteId, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+            } else {
+                response = await fetch(NOTES_API_URL, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+            }
+
+            if (!response.ok) {
+                console.error('Failed to save note on server');
+                return;
+            }
+
+            const savedNote = await response.json();
+
+            // Update in local array
+            const idx = notes.findIndex(function (n) { return n.id === savedNote.id; });
+            if (idx >= 0) {
+                notes[idx] = savedNote;
+            } else {
+                notes.unshift(savedNote);
+            }
+
+            currentNoteId = savedNote.id;
+            noteIdInput.value = savedNote.id;
+            renderNotes();
+        } catch (err) {
+            console.error('Error saving note:', err);
+        }
+    }
+
+    async function deleteCurrentNote() {
+        if (!currentNoteId) return;
+
+        if (!IS_AUTHENTICATED) {
+            // Guest mode: remove from localStorage
+            notes = notes.filter(function (n) { return n.id !== currentNoteId; });
+            saveGuestNotesToLocalStorage();
+            clearEditor();
+            renderNotes();
+            return;
+        }
+
+        // Authenticated: delete via API
+        try {
+            const response = await fetch(NOTES_API_URL + '/' + currentNoteId, {
+                method: 'DELETE'
+            });
+            if (!response.ok) {
+                console.error('Failed to delete note on server');
+                return;
+            }
+            notes = notes.filter(function (n) { return n.id !== currentNoteId; });
+            clearEditor();
+            renderNotes();
+        } catch (err) {
+            console.error('Error deleting note:', err);
+        }
+    }
+
+    function downloadCurrentNote() {
+        const data = collectNoteFromEditor();
+        if (!data.title && !data.content) {
+            return;
+        }
+        const filename = (data.title || 'note') + '.txt';
+        const text = (data.title ? data.title + '\r\n\r\n' : '') + document.getElementById('note-content').value.replace(/\n/g, '\r\n');
+
+        const blob = new Blob([text], { type: 'text/plain;charset=utf-8' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = filename;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+    }
+
+    function setupAutosaveForGuest() {
+        if (!IS_AUTHENTICATED) {
+            setInterval(function () {
+                saveCurrentNote(false);
+            }, 5000);
+        }
+    }
+
+    // --- Event listeners ---
+
+    if (noteForm) {
+        noteForm.addEventListener('submit', function (evt) {
+            evt.preventDefault();
+            saveCurrentNote(true);
+        });
+    }
+
+    if (newNoteBtn) {
+        newNoteBtn.addEventListener('click', function () {
+            clearEditor();
+        });
+    }
+
+    if (deleteNoteBtn) {
+        deleteNoteBtn.addEventListener('click', function () {
+            deleteCurrentNote();
+        });
+    }
+
+    if (downloadNoteBtn) {
+        downloadNoteBtn.addEventListener('click', function () {
+            downloadCurrentNote();
+        });
+    }
+
+    if (searchInput) {
+        searchInput.addEventListener('input', function () {
+            searchQuery = searchInput.value || '';
+            renderNotes();
+        });
+    }
+
+
+    // Initial load
+
+    (async function init() {
+        if (IS_AUTHENTICATED) {
+            await loadNotesForAuthenticatedUser();
+
+
+        } else {
+            loadGuestNotesFromLocalStorage();
+        }
+        renderNotes();
+        setupAutosaveForGuest();
+    })();
+});
+</script>
+{% endblock %}
